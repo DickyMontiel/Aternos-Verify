@@ -1,67 +1,54 @@
 <?php
-    /* 
-        Api creada por DickyMontiel
-        Github: https://github.com/DickyMontiel
-        Fecha de creación: 14-03-2020
-        Email: frederickm.kinal@gmail.com
-        Teléfono: +502 56785549
 
-        --------------------------- ¿Cómo usarlo? ------------------------------
-        1) Escoge una ip de algún servidor de aternos.
-        2) Instancia la clase DmAternos en tu archivo a usarlo colocando este codigo:
+class AternosStatusAnalyzer
+{
 
-            $DmAternos = new DmAternos;
-        
-        3) Crea una variable "$ip" con la ip del servidor 
-        4) Usaremos la clase DmAternos, llamando a la funcion verificar, enviandole el parametro que es la ip:
+    private string $serverAddress;
 
-            $respuesta = $DmAternos->verificar($ip);
-        
-            Si respuesta es igual a 0, es porque el servidor esta Offline.
-            Si es 1, está Online.
-            Si es 2, no existe.
-            Si es 3, la ip esta mal escrita.
+    private array $expectedResponses = [
+        'online',
+        'offline'
+    ];
 
-        !!!!!!!!!!!!!!!!!!!!!!IMPORTANTE¡¡¡¡¡¡¡¡¡¡¡¡¡¡¡¡¡¡¡¡¡¡¡¡
-        Si el codigo de DmAternos no se encuentra en el archivo donde se mostrará.
-        Antes de instanciar la clase, incluye el archivo con:
+    private CurlHandle $curl;
 
-            include("[Ruta]/DmAternos.php");
+    private string $response;
 
-    */
-
-    class DmAternos{
-        public $ip;
-        public $respuesta;
-        public $estado;
-
-        function verificar($ip){
-            if(strpos($ip, ".aternos.me")){
-                $ip = $ip;
-            }else{
-                $ip = $ip.".aternos.me"; 
-            }
-
-            if(strpos($ip, "https://")){
-                $this->ip = $ip; 
-            }else{
-                $this->ip = "https://".$ip; 
-            }
-
-            $ch =           curl_init($this->ip);
-                            curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
-            $respuesta =    curl_exec($ch);
-                            curl_close($ch);
-
-            if(strpos($respuesta, "Offline")){
-                $this->estado = 0;
-            }elseif(strpos($respuesta, "Online")) {
-                $this->estado = 1;
-            }else{
-                $this->estado = 2;
-            }
-
-            return $this->estado;
-        }
+    public function __construct(string $serverAddress)
+    {
+        $this->serverAddress = "https://$serverAddress.aternos.me";
+        return $this->verify();
     }
-?>
+
+    public function __destruct()
+    {
+        curl_close($this->curl);
+    }
+
+    public function verify(): ?string
+    {
+        $this->setResponse()->getResponse();
+
+        return in_array($this->response, $this->expectedResponses) ? $this->response : $this->debug(
+            "$this->serverAddress returned an undefined status"
+        );
+    }
+
+    public function getResponse(): void
+    {
+        curl_setopt($this->curl, CURLOPT_RETURNTRANSFER, true);
+        $this->response = strtolower(curl_exec($this->curl));
+        curl_close($this->curl);
+    }
+
+    public function setResponse(): self
+    {
+        $this->curl = curl_init($this->serverAddress);
+        return $this;
+    }
+
+    public function debug(string $message): void
+    {
+        echo PHP_EOL . '<br><pre>' . htmlspecialchars($message) . '</pre>';
+    }
+}
